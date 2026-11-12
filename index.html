@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f4e5a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Inventario Alfa Cruz</title>
+<style>
+:root{--bg:#f4f1ea;--card:#fff;--ink:#1d2a2e;--muted:#6b7a7e;--pri:#1f4e5a;--pri2:#2f6f7e;--ok:#2e7d4f;--warn:#b7791f;--bad:#b23b3b;--line:#e3ded3;--r:14px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--pri);color:#fff;padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;display:flex;align-items:center;gap:10px}
+header h1{font-size:17px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header button{background:none;border:0;color:#fff;font-size:22px;padding:2px 6px}
+#sync{font-size:12px;background:rgba(255,255,255,.15);border-radius:999px;padding:3px 9px;white-space:nowrap}
+#sync.pend{background:#b7791f}#sync.err{background:#b23b3b}
+main{padding:14px;max-width:720px;margin:0 auto;padding-bottom:90px}
+.card{background:var(--card);border-radius:var(--r);padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.big{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.big a,.big button{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:4px;min-height:92px;padding:14px;border-radius:var(--r);background:var(--pri);color:#fff;text-decoration:none;border:0;font:inherit;text-align:left}
+.big a:nth-child(2){background:#3b6e3b}.big a:nth-child(3){background:#7a5a2f}.big a:nth-child(4){background:#4a4f6b}
+.big b{font-size:18px}.big small{opacity:.85;font-size:13px}
+input,select,textarea{width:100%;font:inherit;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+textarea{min-height:70px}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:10px;padding:11px 14px;font:inherit;font-weight:600;background:var(--pri);color:#fff;text-decoration:none;cursor:pointer}
+.btn.sec{background:#e7e2d6;color:var(--ink)}.btn.bad{background:var(--bad)}.btn.ok{background:var(--ok)}
+.btn.block{display:flex;width:100%;margin-top:8px}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
+.list{list-style:none;margin:0;padding:0}
+.list li{border-top:1px solid var(--line)}.list li:first-child{border-top:0}
+.list a,.list .it{display:flex;align-items:center;gap:10px;padding:11px 2px;color:inherit;text-decoration:none}
+.list .grow{flex:1;min-width:0}.list .t{font-weight:600}.list .s{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.id{font:12px ui-monospace,Menlo,monospace;color:var(--muted)}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;background:#e7e2d6;color:var(--ink);white-space:nowrap}
+.chip.ok{background:#dcefe2;color:#1f5c38}.chip.warn{background:#fbecc9;color:#7a4f0e}.chip.bad{background:#f6d6d6;color:#8a2424}.chip.info{background:#d9e8ec;color:#1f4e5a}
+h2{font-size:15px;margin:4px 0 10px;color:var(--pri)}
+h3{font-size:22px;margin:0 0 4px}
+.muted{color:var(--muted);font-size:14px}
+.ruta{font-size:14px;color:var(--pri2);margin:4px 0}
+.ruta a{color:inherit}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.stat{background:#fff;border-radius:12px;padding:10px 12px;text-decoration:none;color:inherit}
+.stat b{font-size:22px;display:block}.stat span{font-size:13px;color:var(--muted)}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:34px;height:34px;border-radius:9px;border:0;background:#e7e2d6;font-size:18px;font-weight:700}
+.stepper input{width:58px;text-align:center;padding:6px}
+.seg{display:flex;flex-wrap:wrap;border-radius:9px;overflow:hidden;border:1px solid var(--line);gap:1px;background:var(--line)}
+.seg button{flex:1 0 30%;border:0;background:#fff;padding:9px 6px;font:inherit;font-size:13px}
+.seg button.on{background:var(--pri);color:#fff}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 18px);transform:translateX(-50%);background:#1d2a2e;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;transition:.25s;z-index:50;max-width:90vw;pointer-events:none}
+#toast.show{opacity:1}
+/* Escáner */
+.scan{position:fixed;inset:0;background:#000;z-index:20;display:flex;flex-direction:column;color:#fff}
+.scan .cam{position:relative;flex:0 0 46vh;overflow:hidden;background:#111}
+.scan video{width:100%;height:100%;object-fit:cover}
+.scan .frame{position:absolute;inset:16% 18%;border:3px solid rgba(255,255,255,.8);border-radius:18px;box-shadow:0 0 0 999px rgba(0,0,0,.25)}
+.scan .flash{position:absolute;inset:0;background:#2e7d4f;opacity:0;transition:opacity .35s}
+.scan .flash.err{background:#b23b3b}
+.scan .top{position:absolute;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top) + 8px) 10px 8px;display:flex;gap:8px;align-items:center;background:linear-gradient(#000a,#0000)}
+.scan .top button{background:rgba(0,0,0,.45);border:0;color:#fff;border-radius:10px;padding:8px 12px;font:inherit}
+.scan .dest{padding:10px 14px;background:#1f4e5a}
+.scan .dest small{opacity:.8;display:block;font-size:12px}
+.scan .dest b{font-size:17px}
+.scan .dest.none{background:#7a5a2f}
+.scan .last{padding:10px 14px;font-size:18px;font-weight:700;min-height:48px;border-bottom:1px solid #333}
+.scan .last.err{color:#ff9b9b}
+.scan .log{flex:1;overflow:auto;background:#151a1c;margin:0;padding:0;list-style:none}
+.scan .log li{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #222;font-size:15px}
+.scan .log li .grow{flex:1;min-width:0}
+.scan .log li small{display:block;color:#9aa;font-size:12px}
+.scan .log button{background:#333;color:#fff;border:0;border-radius:8px;padding:6px 10px}
+.scan .bot{display:flex;gap:8px;padding:10px 12px calc(env(safe-area-inset-bottom) + 10px);background:#000}
+.scan .bot input{flex:1;background:#222;color:#fff;border-color:#333}
+/* Etiquetas */
+.labels{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+.label{border:1px dashed #bbb;padding:6px;text-align:center;page-break-inside:avoid;break-inside:avoid}
+.label svg{width:100%;height:auto;max-width:150px}
+.label .ln{font-size:11px;font-weight:700;line-height:1.15;margin-top:2px}
+.label .li{font:600 13px ui-monospace,Menlo,monospace}
+.label .lg{font-size:9px;color:#555}
+@media print{header,.noprint,#toast{display:none!important}main{padding:0;max-width:none}body{background:#fff}.card{box-shadow:none;padding:0}@page{margin:8mm}}
+</style>
+</head>
+<body>
+<header>
+  <button id="back" aria-label="Volver" onclick="history.length>1?history.back():go('#/')">‹</button>
+  <h1 id="title">Inventario Alfa Cruz</h1>
+  <span id="sync" onclick="sincronizar(true)">…</span>
+</header>
+<main id="view"></main>
+<div id="toast"></div>
+<script src="lib/jsQR.js"></script>
+<script src="lib/qrcode.js"></script>
+<script>
+/* ================= Configuración ================= */
+// Pega aquí la URL de la implementación del Apps Script (termina en /exec):
+const API_URL_DEFECTO = 'PEGAR_AQUI_URL_DEL_SCRIPT';
+const APP_URL = location.origin + location.pathname.replace(/index\.html$/, '');
+const TIPOS_FIJOS = ['Casa', 'Zona', 'Campamento', 'Vehículo']; // lugares que no se mueven; los "Caja" sí
+
+/* ================= Estado ================= */
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem('ac_' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('ac_' + k, JSON.stringify(v)); } catch (e) {} }
+};
+let DB = LS.get('db', null);       // copia local de la planilla
+let COLA = LS.get('cola', []);      // operaciones pendientes de enviar
+let syncError = '';
+const api = () => LS.get('api', '') || API_URL_DEFECTO;
+const usuario = () => LS.get('user', '');
+const pin = () => LS.get('pin', '');
+
+/* ================= Utilidades ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const go = h => { location.hash = h; };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+function toast(msg, ms = 2200) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), ms); }
+const hoyISO = () => new Date().toLocaleDateString('sv-SE');
+
+const T = { L: 'lugares', A: 'activos', B: 'material', C: 'consumibles', E: 'enfermeria' };
+function tablaDe(id) { return DB && DB[T[String(id).charAt(0)]] || []; }
+function obj(id) { return tablaDe(id).find(r => r.ID === id); }
+function nombre(o) { return o ? (o.Nombre || o.Insumo || o.ID) : '?'; }
+function ubic(o) { return o ? (o['Ubicación (ID)'] ?? o['Dentro de (ID)'] ?? '') : ''; }
+function lugar(id) { return (DB?.lugares || []).find(l => l.ID === id); }
+function cadena(id) { // [lugar raíz, ..., lugar]
+  const out = []; let cur = id, n = 0;
+  while (cur && n++ < 20) { const l = lugar(cur); if (!l) break; out.unshift(l); cur = l['Dentro de (ID)']; }
+  return out;
+}
+function ruta(id, links = false) {
+  const c = cadena(id);
+  if (!c.length) return id ? esc(id) : '<i>sin ubicación</i>';
+  return c.map(l => links ? `<a href="#/f/${esc(l.ID)}">${esc(l.Nombre)}</a>` : esc(l.Nombre)).join(' › ');
+}
+function esFijo(l) { return l && TIPOS_FIJOS.includes(l.Tipo); }
+function dentroDe(lugarId, padreId) { return cadena(lugarId).some(l => l.ID === padreId); }
+function idDesdeTexto(txt) {
+  txt = String(txt || '').trim();
+  try { const u = new URL(txt); const p = u.searchParams.get('id'); if (p) txt = p; } catch (e) {}
+  const m = txt.toUpperCase().match(/\b([LABCE])-?(\d{1,4})\b/);
+  return m ? `${m[1]}-${m[2].padStart(3, '0')}` : null;
+}
+function chipEstado(e) {
+  const c = { 'Bueno': 'ok', 'Regular': 'warn', 'En reparación': 'warn', 'Malo': 'bad', 'Perdido': 'bad', 'Hay': 'ok', 'Poco': 'warn', 'Falta': 'bad', 'Vigente': 'ok', 'Vence pronto': 'warn', 'Vencido': 'bad' }[e] || '';
+  return e ? `<span class="chip ${c}">${esc(e)}</span>` : '';
+}
+function lista(nombreLista, defecto) { return (DB?.listas?.[nombreLista]?.length ? DB.listas[nombreLista] : defecto); }
+function estadoVenc(v) {
+  if (!v) return 'No aplica';
+  const d = new Date(v + 'T12:00:00'), hoy = new Date(); if (isNaN(d)) return '';
+  if (d < hoy) return 'Vencido';
+  return (d - hoy) / 864e5 < 90 ? 'Vence pronto' : 'Vigente';
+}
+
+/* ================= Sonido / vibración ================= */
+let AC;
+function beep(tipo = 'ok') {
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.frequency.value = tipo === 'err' ? 220 : tipo === 'lugar' ? 660 : 990;
+    o.type = tipo === 'err' ? 'square' : 'sine';
+    g.gain.setValueAtTime(.25, AC.currentTime); g.gain.exponentialRampToValueAtTime(.001, AC.currentTime + (tipo === 'err' ? .35 : .15));
+    o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime + .4);
+  } catch (e) {}
+  if (navigator.vibrate) navigator.vibrate(tipo === 'err' ? [80, 60, 80] : 60);
+}
+
+/* ================= Datos y sincronización ================= */
+function guardarLocal() { LS.set('db', DB); LS.set('cola', COLA); pintarSync(); }
+
+function aplicarLocal(op) { // refleja la operación en la copia local (optimista)
+  if (!DB) return;
+  const o = op.id ? obj(op.id) : null;
+  switch (op.type) {
+    case 'mover': if (o) { if (op.id[0] === 'L') o['Dentro de (ID)'] = op.to; else o['Ubicación (ID)'] = op.to; o['Última actualización'] = hoyISO(); } break;
+    case 'estado': if (o) o.Estado = op.estado; break;
+    case 'prestar': if (o) o['Prestado a'] = op.unidad; break;
+    case 'devolver': if (o) o['Prestado a'] = ''; break;
+    case 'reparacion': if (o && op.estado) o.Estado = op.estado; break;
+    case 'cantidad': if (o) { o.Cantidad = String(op.cantidad); if (op.vencimiento !== undefined) { o.Vencimiento = op.vencimiento; o.Estado = estadoVenc(op.vencimiento); } } break;
+    case 'nivel': if (o) o.Nivel = op.nivel; break;
+  }
+}
+
+function encolar(op) {
+  op.uid = uid(); op.ts = new Date().toISOString();
+  COLA.push(op); aplicarLocal(op); guardarLocal();
+  clearTimeout(encolar._t); encolar._t = setTimeout(() => sincronizar(), 1500);
+  return op;
+}
+
+function pintarSync() {
+  const s = $('#sync'); if (!s) return;
+  s.className = '';
+  if (COLA.length) { s.textContent = `⟳ ${COLA.length} por subir`; s.classList.add('pend'); }
+  else if (syncError) { s.textContent = '⚠ sin conexión'; s.classList.add('err'); }
+  else s.textContent = '✓ al día';
+}
+
+let sincronizando = false;
+async function sincronizar(manual) {
+  if (sincronizando) return;
+  if (!api() || api().startsWith('PEGAR')) { syncError = 'Falta configurar la URL'; pintarSync(); if (manual) go('#/ajustes'); return; }
+  sincronizando = true;
+  try {
+    if (COLA.length) {
+      if (!pin()) { syncError = 'Falta PIN'; if (manual) { toast('Ingresa el PIN del grupo en Ajustes'); go('#/ajustes'); } return; }
+      const lote = COLA.slice(0, 80);
+      const r = await fetch(api(), { method: 'POST', body: JSON.stringify({ pin: pin(), user: usuario(), ops: lote }) }).then(r => r.json());
+      if (!r.ok) { syncError = r.error; toast('Error: ' + r.error, 4000); if (r.error === 'PIN incorrecto') go('#/ajustes'); return; }
+      const fallidas = r.resultados.filter(x => !x.ok);
+      const enviados = new Set(lote.map(o => o.uid));
+      COLA = COLA.filter(o => !enviados.has(o.uid));
+      DB = r.data; COLA.forEach(aplicarLocal);
+      if (fallidas.length) toast(`${fallidas.length} cambio(s) rechazados: ${fallidas[0].error}`, 5000);
+      syncError = '';
+      guardarLocal();
+      if (COLA.length) { sincronizando = false; return sincronizar(); }
+    } else {
+      const r = await fetch(api() + '?action=all&t=' + Date.now()).then(r => r.json());
+      if (!r.ok) throw new Error(r.error);
+      DB = r.data; syncError = ''; guardarLocal();
+    }
+    if (manual) toast('Sincronizado');
+    if (!enEscaner()) render();
+  } catch (e) {
+    syncError = String(e.message || e); if (manual) toast('Sin conexión: los cambios quedan guardados en el teléfono', 3500);
+  } finally { sincronizando = false; pintarSync(); }
+}
+window.addEventListener('online', () => sincronizar());
+setInterval(() => { if (COLA.length) sincronizar(); }, 30000);
+
+/* ================= Vistas ================= */
+function setTitle(t) { $('#title').textContent = t; document.title = t + ' · Inventario'; }
+function vista(html) { $('#view').innerHTML = html; window.scrollTo(0, 0); }
+
+function vInicio() {
+  setTitle('Inventario Alfa Cruz');
+  if (!DB) return vista(`<div class="card"><h2>Bienvenido</h2><p class="muted">Aún no hay datos en este teléfono.</p>
+    <button class="btn block" onclick="sincronizar(true)">Descargar inventario</button>
+    <a class="btn sec block" href="#/ajustes">Ajustes</a></div>`);
+  const act = DB.activos;
+  const problemas = act.filter(a => ['Malo', 'Perdido', 'En reparación'].includes(a.Estado)).length;
+  const prest = act.filter(a => a['Prestado a']).length;
+  const faltan = DB.consumibles.filter(c => c.Nivel === 'Falta' || c.Nivel === 'Poco').length;
+  const venc = DB.enfermeria.filter(e => e.Estado === 'Vencido' || e.Estado === 'Vence pronto').length;
+  const enCamp = act.filter(a => lugar(a['Ubicación (ID)'])?.Tipo === 'Campamento' || cadena(a['Ubicación (ID)']).some(l => l.Tipo === 'Campamento')).length;
+  vista(`
+  <div class="card" style="padding:10px">
+    <form onsubmit="event.preventDefault();go('#/buscar/'+encodeURIComponent(this.q.value))">
+      <input name="q" type="search" placeholder="Buscar: carpa, cocinilla, cajón 3…" autocomplete="off">
+    </form>
+  </div>
+  <div class="big">
+    <a href="#/scan/guardar"><b>📥 Guardar</b><small>Escanear en ráfaga y ordenar</small></a>
+    <a href="#/camp"><b>🏕️ Campamento</b><small>Cargar / revisar regreso</small></a>
+    <a href="#/scan/ver"><b>🔍 Escanear</b><small>Ver ficha de un QR</small></a>
+    <a href="#/lugares"><b>📦 Lugares</b><small>Casas y cajones</small></a>
+  </div>
+  <div class="stats">
+    <a class="stat" href="#/lista/problemas"><b>${problemas}</b><span>activos con problema</span></a>
+    <a class="stat" href="#/lista/prestados"><b>${prest}</b><span>prestados a unidades</span></a>
+    <a class="stat" href="#/lista/reponer"><b>${faltan}</b><span>consumibles por reponer</span></a>
+    <a class="stat" href="#/lista/enfermeria"><b>${venc}</b><span>insumos vencidos o por vencer</span></a>
+    <a class="stat" href="#/lista/campamento"><b>${enCamp}</b><span>activos en campamento</span></a>
+    <a class="stat" href="#/lista/activos"><b>${act.length}</b><span>activos en total</span></a>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="row"><a class="btn sec" href="#/etiquetas">🏷️ Etiquetas QR</a><a class="btn sec" href="#/ajustes">⚙️ Ajustes</a></div>
+    <p class="muted" style="margin:10px 0 0">Datos al ${esc((DB.hora || '').replace('T', ' ').slice(0, 16))}${usuario() ? ' · ' + esc(usuario()) : ''}</p>
+  </div>`);
+}
+
+function itemLi(o, extra = '') {
+  const tipo = o.ID[0];
+  let sub = tipo === 'L' ? `${esc(o.Tipo)}${o['Dentro de (ID)'] ? ' · ' + ruta(o['Dentro de (ID)']) : ''}` : ruta(ubic(o));
+  let chip = tipo === 'A' ? chipEstado(o.Estado) + (o['Prestado a'] ? ` <span class="chip info">${esc(o['Prestado a'])}</span>` : '')
+    : tipo === 'C' ? chipEstado(o.Nivel) : tipo === 'E' ? chipEstado(o.Estado) : tipo === 'B' && o.Cantidad ? `<span class="chip">${esc(o.Cantidad)}</span>` : '';
+  return `<li><a href="#/f/${esc(o.ID)}"><div class="grow"><div class="t">${esc(nombre(o))}</div><div class="s"><span class="id">${esc(o.ID)}</span> · ${sub}</div></div>${chip}${extra}</a></li>`;
+}
+
+function vBuscar(q) {
+  q = decodeURIComponent(q || '');
+  setTitle('Buscar');
+  const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const t = norm(q).split(/\s+/).filter(Boolean);
+  const todos = ['lugares', 'activos', 'material', 'consumibles', 'enfermeria'].flatMap(k => DB[k]);
+  const res = todos.filter(o => { const s = norm([o.ID, nombre(o), o.Categoría, o.Detalle, o.Notas].join(' ')); return t.every(w => s.includes(w)); });
+  vista(`<div class="card" style="padding:10px"><form onsubmit="event.preventDefault();go('#/buscar/'+encodeURIComponent(this.q.value))">
+    <input name="q" type="search" value="${esc(q)}" placeholder="Buscar…" autofocus></form></div>
+    <div class="card"><h2>${res.length} resultado(s)</h2><ul class="list">${res.slice(0, 200).map(o => itemLi(o)).join('') || '<li class="muted">Nada encontrado</li>'}</ul></div>`);
+}
+
+function vLugares() {
+  setTitle('Lugares');
+  const raiz = DB.lugares.filter(l => !l['Dentro de (ID)'] || !lugar(l['Dentro de (ID)']));
+  const arbol = (l, n) => {
+    const hijos = DB.lugares.filter(h => h['Dentro de (ID)'] === l.ID);
+    const cant = DB.activos.filter(a => a['Ubicación (ID)'] === l.ID).length;
+    return `<li><a href="#/f/${esc(l.ID)}" style="padding-left:${n * 18}px"><div class="grow"><div class="t">${n ? '↳ ' : ''}${esc(l.Nombre)}</div>
+      <div class="s"><span class="id">${esc(l.ID)}</span> · ${esc(l.Tipo)}${l.Responsable ? ' · ' + esc(l.Responsable) : ''}${l.Notas ? ' · ' + esc(l.Notas) : ''}</div></div>
+      ${cant ? `<span class="chip">${cant} activos</span>` : ''}</a></li>` + hijos.map(h => arbol(h, n + 1)).join('');
+  };
+  vista(`<div class="card"><ul class="list">${raiz.filter(l => l.Tipo !== 'Campamento').map(l => arbol(l, 0)).join('')}</ul></div>
+    <div class="card"><h2>Nuevo lugar</h2>
+      <label>Nombre</label><input id="nl_n" placeholder="Ej: Cajón 14">
+      <div class="row"><div><label>Tipo</label><select id="nl_t">${lista('Tipos de lugar', ['Casa', 'Caja', 'Zona']).filter(t => t !== 'Campamento').map(t => `<option ${t === 'Caja' ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
+      <div><label>Dentro de</label><select id="nl_d"><option value="">— ninguno —</option>${DB.lugares.filter(esFijo).map(l => `<option value="${esc(l.ID)}">${esc(l.Nombre)}</option>`).join('')}</select></div></div>
+      <label>Responsable (si es casa)</label><input id="nl_r">
+      <button class="btn block" onclick="altaLugar()">Crear lugar</button></div>`);
+}
+async function altaLugar() {
+  const n = $('#nl_n').value.trim(); if (!n) return toast('Falta el nombre');
+  await altaOnline({ prefijo: 'L', campos: { 'Nombre': n, 'Tipo': $('#nl_t').value, 'Dentro de (ID)': $('#nl_d').value, 'Responsable': $('#nl_r').value } });
+}
+async function altaOnline(op) { // altas requieren conexión (el servidor asigna el ID)
+  if (!navigator.onLine) return toast('Para crear elementos nuevos necesitas internet');
+  if (!pin()) { toast('Ingresa el PIN en Ajustes'); return go('#/ajustes'); }
+  op.uid = uid(); op.ts = new Date().toISOString(); op.type = op.type || 'alta';
+  try {
+    const r = await fetch(api(), { method: 'POST', body: JSON.stringify({ pin: pin(), user: usuario(), ops: [op] }) }).then(r => r.json());
+    if (!r.ok) return toast('Error: ' + r.error);
+    const res = r.resultados[0]; if (!res.ok) return toast('Error: ' + res.error);
+    DB = r.data; COLA.forEach(aplicarLocal); guardarLocal();
+    toast('Creado ' + res.id); go('#/f/' + res.id);
+    return res.id;
+  } catch (e) { toast('Sin conexión'); }
+}
+
+/* ----- Fichas ----- */
+async function vFicha(id) {
+  const o = obj(id);
+  if (!o) { setTitle('No encontrado'); return vista(`<div class="card"><h3>${esc(id)}</h3><p class="muted">Este código no está en el inventario descargado.</p><button class="btn block" onclick="sincronizar(true)">Actualizar datos</button></div>`); }
+  const t = id[0];
+  setTitle(nombre(o));
+  if (t === 'L') return vFichaLugar(o);
+  const opcionesLugar = sel => DB.lugares.map(l => `<option value="${esc(l.ID)}" ${l.ID === sel ? 'selected' : ''}>${ruta(l.ID)}</option>`).join('');
+  let html = `<div class="card"><span class="id">${esc(o.ID)}${o.Categoría ? ' · ' + esc(o.Categoría) : ''}</span><h3>${esc(nombre(o))}</h3>
+    <div class="ruta">📍 ${ruta(ubic(o), true)}</div>`;
+  if (t === 'A') {
+    html += `<p>${chipEstado(o.Estado)} ${o['Prestado a'] ? `<span class="chip info">Prestado a ${esc(o['Prestado a'])}</span>` : ''} ${o.Dueño && o.Dueño !== 'Alfa Cruz' ? `<span class="chip">${esc(o.Dueño)}</span>` : ''}</p>`;
+    if (o.Notas) html += `<p class="muted">${esc(o.Notas)}</p>`;
+    html += `<p class="muted">Actualizado ${esc(o['Última actualización'] || '—')}${o['Actualizado por'] ? ' por ' + esc(o['Actualizado por']) : ''}</p></div>
+    <div class="card"><h2>Estado</h2><div class="seg" id="seg_e">${lista('Estados', ['Bueno', 'Regular', 'Malo', 'En reparación', 'Perdido', 'Sin revisar']).map(e => `<button class="${e === o.Estado ? 'on' : ''}" onclick="cambiarEstado('${esc(id)}','${esc(e)}')">${esc(e)}</button>`).join('')}</div></div>
+    <div class="card"><h2>Préstamo</h2>${o['Prestado a']
+      ? `<p>Prestado a <b>${esc(o['Prestado a'])}</b></p><button class="btn ok block" onclick="encolar({type:'devolver',id:'${esc(id)}'});toast('Devuelto');render()">Marcar devuelto</button>`
+      : `<div class="row"><select id="pu">${lista('Unidades', ['Manada', 'Tropa', 'Compañía', 'Avanzada', 'Clan']).map(u => `<option>${esc(u)}</option>`).join('')}</select>
+         <button class="btn" style="flex:0 0 auto" onclick="encolar({type:'prestar',id:'${esc(id)}',unidad:$('#pu').value});toast('Préstamo registrado');render()">Prestar</button></div>`}</div>
+    <div class="card"><h2>Falla o reparación</h2>
+      <label>¿Qué pasó?</label><textarea id="rf" placeholder="Ej: no prende el quemador izquierdo"></textarea>
+      <label>Reparación realizada (opcional)</label><input id="ra" placeholder="Ej: se cambió la válvula">
+      <div class="row"><div><label>Costo CLP (opcional)</label><input id="rc" inputmode="numeric"></div>
+      <div><label>Estado después</label><select id="re">${lista('Estados', ['Bueno', 'Regular', 'Malo', 'En reparación']).map(e => `<option ${e === (o.Estado === 'Bueno' ? 'Malo' : o.Estado) ? 'selected' : ''}>${esc(e)}</option>`).join('')}</select></div></div>
+      <button class="btn block" onclick="registrarReparacion('${esc(id)}')">Guardar en historial</button></div>`;
+  } else if (t === 'B' || t === 'E') {
+    html += t === 'E' ? `<p>${chipEstado(o.Estado)} ${o.Vencimiento ? `<span class="muted">vence ${esc(o.Vencimiento)}</span>` : ''}</p>` : '';
+    html += `${o.Detalle ? `<p class="muted">${esc(o.Detalle)}</p>` : ''}</div>
+    <div class="card"><h2>Cantidad</h2>${stepper(o)}
+    ${t === 'E' ? `<label>Vencimiento</label><input type="date" id="venc" value="${esc(o.Vencimiento || '')}"><button class="btn block" onclick="encolar({type:'cantidad',id:'${esc(id)}',cantidad:Number(obj('${esc(id)}').Cantidad)||0,vencimiento:$('#venc').value});toast('Guardado');render()">Guardar vencimiento</button>` : ''}</div>`;
+  } else if (t === 'C') {
+    html += `${o.Detalle ? `<p class="muted">${esc(o.Detalle)}</p>` : ''}</div><div class="card"><h2>Nivel</h2>${segNivel(o)}</div>`;
+  }
+  html += `<div class="card"><h2>Mover a otro lugar</h2><select id="mv">${opcionesLugar(ubic(o))}</select>
+    <button class="btn sec block" onclick="moverManual('${esc(id)}',$('#mv').value)">Mover</button></div>
+    <div class="card" id="hist"><h2>Historial</h2><p class="muted">Cargando…</p></div>`;
+  vista(html);
+  cargarHistorial(id);
+}
+
+function stepper(o) {
+  const id = esc(o.ID);
+  return `<div class="stepper"><button onclick="cambiarCant('${id}',-1)">−</button><input id="q_${id}" inputmode="numeric" value="${esc(o.Cantidad)}" onchange="fijarCant('${id}',this.value)"><button onclick="cambiarCant('${id}',1)">+</button></div>`;
+}
+function segNivel(o) {
+  return `<div class="seg">${lista('Niveles', ['Hay', 'Poco', 'Falta']).filter(n => n !== 'Sin revisar').map(n => `<button class="${n === o.Nivel ? 'on' : ''}" onclick="encolar({type:'nivel',id:'${esc(o.ID)}',nivel:'${esc(n)}'});this.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===this))">${esc(n)}</button>`).join('')}</div>`;
+}
+const cantTimers = {};
+function cambiarCant(id, d) { const o = obj(id); const v = Math.max(0, (parseInt(o.Cantidad, 10) || 0) + d); const inp = document.getElementById('q_' + id); if (inp) inp.value = v; o.Cantidad = String(v); clearTimeout(cantTimers[id]); cantTimers[id] = setTimeout(() => fijarCant(id, v), 900); }
+function fijarCant(id, v) { v = Math.max(0, parseInt(v, 10) || 0); COLA = COLA.filter(op => !(op.type === 'cantidad' && op.id === id && op.vencimiento === undefined)); encolar({ type: 'cantidad', id, cantidad: v }); }
+function cambiarEstado(id, e) { encolar({ type: 'estado', id, estado: e }); toast('Estado: ' + e); render(); }
+function moverManual(id, to) {
+  if (id === to || (id[0] === 'L' && dentroDe(to, id))) return toast('No se puede mover ahí');
+  encolar({ type: 'mover', id, to, modo: 'Guardar' }); toast('Movido a ' + nombre(lugar(to))); render();
+}
+function registrarReparacion(id) {
+  const f = $('#rf').value.trim(), a = $('#ra').value.trim();
+  if (!f && !a) return toast('Describe la falla o la reparación');
+  encolar({ type: 'reparacion', id, falla: f, arreglo: a, costo: $('#rc').value.replace(/\D/g, ''), estado: $('#re').value });
+  toast('Guardado en historial'); render();
+}
+async function cargarHistorial(id) {
+  const box = $('#hist'); if (!box) return;
+  const loc = COLA.filter(o => o.id === id);
+  try {
+    if (!navigator.onLine || api().startsWith('PEGAR')) throw 0;
+    const r = await fetch(api() + '?action=historial&id=' + encodeURIComponent(id)).then(r => r.json());
+    if (!r.ok || !$('#hist')) return;
+    const h = r.historial, rep = h.reparaciones || [], mov = h.movimientos || [];
+    $('#hist').innerHTML = `<h2>Historial</h2>
+      ${loc.length ? `<p class="muted">${loc.length} cambio(s) aún sin subir</p>` : ''}
+      ${rep.length ? `<p><b>Reparaciones</b></p><ul class="list">${rep.map(x => `<li><div class="it"><div class="grow"><div class="t">${esc(x['Falla reportada'] || x['Reparación realizada'])}</div><div class="s">${esc(x.Fecha)} · ${esc(x.Responsable)}${x['Reparación realizada'] && x['Falla reportada'] ? ' · Arreglo: ' + esc(x['Reparación realizada']) : ''}${x['Costo (CLP)'] ? ' · $' + esc(x['Costo (CLP)']) : ''}</div></div>${chipEstado(x['Estado después'])}</div></li>`).join('')}</ul>` : ''}
+      <p><b>Movimientos</b></p><ul class="list">${mov.map(x => `<li><div class="it"><div class="grow"><div class="t">${esc(x.Acción)}${x['Hacia (ID)'] ? ' → ' + esc(nombre(lugar(x['Hacia (ID)'])) || x['Hacia (ID)']) : ''}</div><div class="s">${esc(x['Fecha y hora'])} · ${esc(x.Usuario)}${x.Detalle ? ' · ' + esc(x.Detalle) : ''}</div></div></div></li>`).join('') || '<li class="muted">Sin movimientos registrados aún</li>'}</ul>`;
+  } catch (e) { if ($('#hist')) $('#hist').innerHTML = `<h2>Historial</h2><p class="muted">Disponible con conexión.</p>`; }
+}
+
+function vFichaLugar(l) {
+  const hijos = DB.lugares.filter(h => h['Dentro de (ID)'] === l.ID);
+  const de = k => DB[k].filter(o => ubic(o) === l.ID);
+  const act = de('activos'), mat = de('material'), con = de('consumibles'), enf = de('enfermeria');
+  const esCamp = l.Tipo === 'Campamento';
+  vista(`<div class="card"><span class="id">${esc(l.ID)} · ${esc(l.Tipo)}</span><h3>${esc(l.Nombre)}</h3>
+    ${l['Dentro de (ID)'] ? `<div class="ruta">📍 ${ruta(l['Dentro de (ID)'], true)}</div>` : ''}
+    ${l.Responsable ? `<p class="muted">Responsable: ${esc(l.Responsable)}</p>` : ''}${l.Notas ? `<p class="muted">${esc(l.Notas)}</p>` : ''}
+    <a class="btn block" href="#/scan/${esCamp ? 'cargar/' + esc(l.ID) : 'guardar/' + esc(l.ID)}">${esCamp ? '🏕️ Cargar a este campamento' : '📥 Guardar aquí (ráfaga)'}</a>
+    ${!esFijo(l) ? `<div class="row" style="margin-top:8px"><select id="mvl">${DB.lugares.filter(x => x.ID !== l.ID && !dentroDe(x.ID, l.ID) && esFijo(x)).map(x => `<option value="${esc(x.ID)}" ${x.ID === l['Dentro de (ID)'] ? 'selected' : ''}>${ruta(x.ID)}</option>`).join('')}</select>
+      <button class="btn sec" style="flex:0 0 auto" onclick="moverManual('${esc(l.ID)}',$('#mvl').value)">Mover cajón</button></div>` : ''}
+  </div>
+  ${hijos.length ? `<div class="card"><h2>Dentro (${hijos.length})</h2><ul class="list">${hijos.map(h => itemLi(h)).join('')}</ul></div>` : ''}
+  <div class="card"><h2>Activos con QR (${act.length})</h2><ul class="list">${act.map(o => itemLi(o)).join('') || '<li class="muted">Ninguno</li>'}</ul></div>
+  ${mat.length ? `<div class="card"><h2>Material común (${mat.length})</h2><ul class="list">${mat.map(o => `<li><div class="it"><div class="grow"><a href="#/f/${esc(o.ID)}" style="padding:0" class="t">${esc(o.Nombre)}</a><div class="s">${esc(o.Detalle || '')}</div></div>${stepper(o)}</div></li>`).join('')}</ul></div>` : ''}
+  ${con.length ? `<div class="card"><h2>Consumibles (${con.length})</h2><ul class="list">${con.map(o => `<li><div class="it" style="flex-wrap:wrap"><div class="grow"><a href="#/f/${esc(o.ID)}" style="padding:0" class="t">${esc(o.Nombre)}</a><div class="s">${esc(o.Detalle || '')}</div></div><div style="flex:0 0 190px">${segNivel(o)}</div></div></li>`).join('')}</ul></div>` : ''}
+  ${enf.length ? `<div class="card"><h2>Enfermería (${enf.length})</h2><ul class="list">${enf.map(o => `<li><div class="it"><div class="grow"><a href="#/f/${esc(o.ID)}" style="padding:0" class="t">${esc(o.Insumo)}</a><div class="s">${o.Vencimiento ? 'vence ' + esc(o.Vencimiento) : 'sin vencimiento'} ${chipEstado(o.Estado === 'No aplica' ? '' : o.Estado)}</div></div>${stepper(o)}</div></li>`).join('')}</ul></div>` : ''}
+  <div class="card noprint"><a class="btn sec block" href="#/etiquetas/${esc(l.ID)}">🏷️ Imprimir QR de este lugar y su contenido</a></div>`);
+}
+
+/* ----- Listas ----- */
+function vLista(tipo) {
+  const defs = {
+    activos: ['Todos los activos', () => DB.activos],
+    problemas: ['Activos con problema', () => DB.activos.filter(a => ['Malo', 'Perdido', 'En reparación', 'Regular'].includes(a.Estado))],
+    prestados: ['Prestados a unidades', () => DB.activos.filter(a => a['Prestado a'])],
+    reponer: ['Consumibles por reponer', () => DB.consumibles.filter(c => c.Nivel === 'Falta' || c.Nivel === 'Poco')],
+    enfermeria: ['Enfermería', () => DB.enfermeria.slice().sort((a, b) => (a.Vencimiento || '9999').localeCompare(b.Vencimiento || '9999'))],
+    campamento: ['Activos en campamento', () => DB.activos.filter(a => cadena(ubic(a)).some(l => l.Tipo === 'Campamento'))],
+    sinrevisar: ['Sin revisar', () => DB.activos.filter(a => a.Estado === 'Sin revisar')]
+  };
+  const [titulo, f] = defs[tipo] || defs.activos;
+  setTitle(titulo);
+  const items = f();
+  const porCat = {};
+  items.forEach(o => (porCat[o.Categoría || 'Otros'] = porCat[o.Categoría || 'Otros'] || []).push(o));
+  vista(Object.entries(porCat).map(([c, xs]) => `<div class="card"><h2>${esc(c)} (${xs.length})</h2><ul class="list">${xs.map(o => itemLi(o)).join('')}</ul></div>`).join('') || `<div class="card muted">Nada por aquí 👍</div>`);
+}
+
+/* ----- Campamentos ----- */
+function vCamp() {
+  setTitle('Campamentos');
+  const camps = DB.lugares.filter(l => l.Tipo === 'Campamento').reverse();
+  const info = id => DB.campamentos.find(c => c.ID === id) || {};
+  const cuenta = id => DB.activos.filter(a => dentroDe(ubic(a), id)).length + DB.lugares.filter(l => l['Dentro de (ID)'] === id).length;
+  vista(`<div class="card"><h2>¿Cómo funciona?</h2><p class="muted" style="margin:0">1) Crea el campamento. 2) <b>Cargar</b>: escanea todo lo que sube al vehículo. 3) Al volver, usa <b>Guardar</b> en cada casa o cajón. Lo que siga "en campamento" es lo que falta.</p></div>
+  ${camps.map(c => { const n = cuenta(c.ID), i = info(c.ID); return `<div class="card"><div class="row"><div><b>${esc(c.Nombre)}</b><div class="muted">${esc(i['Fecha inicio'] || '')}${i.Unidad ? ' · ' + esc(i.Unidad) : ''}${i.Lugar ? ' · ' + esc(i.Lugar) : ''}</div></div>
+    <span class="chip ${n ? 'warn' : 'ok'}" style="flex:0 0 auto">${n ? n + ' aún allá' : 'todo de vuelta'}</span></div>
+    <div class="row" style="margin-top:10px"><a class="btn" href="#/scan/cargar/${esc(c.ID)}">Cargar</a><a class="btn sec" href="#/f/${esc(c.ID)}">Ver qué falta</a></div></div>`; }).join('')}
+  <div class="card"><h2>Nuevo campamento</h2>
+    <label>Nombre</label><input id="c_n" placeholder="Ej: Campamento de verano 2027">
+    <div class="row"><div><label>Inicio</label><input type="date" id="c_i"></div><div><label>Fin</label><input type="date" id="c_f"></div></div>
+    <div class="row"><div><label>Unidad</label><select id="c_u">${lista('Unidades', ['Grupo']).map(u => `<option>${esc(u)}</option>`).join('')}</select></div><div><label>Lugar</label><input id="c_l" placeholder="Ej: Ralco"></div></div>
+    <button class="btn block" onclick="crearCamp()">Crear</button></div>`);
+}
+async function crearCamp() {
+  const n = $('#c_n').value.trim(); if (!n) return toast('Falta el nombre');
+  await altaOnline({ type: 'campamento', nombre: n, inicio: $('#c_i').value, fin: $('#c_f').value, unidad: $('#c_u').value, lugar: $('#c_l').value });
+}
+
+/* ================= Escáner en ráfaga ================= */
+const S = { modo: null, casa: null, dest: null, ses: [], ultimo: {}, stream: null, loop: 0, det: null };
+const enEscaner = () => !!document.querySelector('.scan');
+
+function vScan(modo, destino) {
+  S.modo = modo; S.ses = []; S.ultimo = {}; S.casa = null; S.dest = null;
+  if (destino) { const l = lugar(destino); if (l) { S.dest = l.ID; if (esFijo(l)) S.casa = l.ID; else S.casa = (cadena(l.ID).reverse().find(x => esFijo(x)) || {}).ID || null; } }
+  const titulo = { guardar: 'Guardar', cargar: 'Cargar a campamento', ver: 'Escanear' }[modo];
+  document.body.insertAdjacentHTML('beforeend', `<div class="scan">
+    <div class="cam"><video playsinline muted></video><div class="frame"></div><div class="flash"></div>
+      <div class="top"><button onclick="cerrarScan()">✕ Terminar</button><b style="flex:1">${titulo}</b><button id="torch" style="display:none" onclick="linterna()">🔦</button></div></div>
+    <div class="dest" id="sdest"></div>
+    <div class="last" id="slast">${modo === 'ver' ? 'Apunta a un código QR' : 'Listo para escanear'}</div>
+    <ul class="log" id="slog"></ul>
+    <form class="bot" onsubmit="event.preventDefault();procesar(this.m.value);this.m.value=''"><input name="m" placeholder="o escribe el ID (ej: A-12)" autocomplete="off" autocapitalize="characters"><button class="btn">OK</button></form>
+  </div>`);
+  pintarDest(); abrirCamara();
+}
+
+function pintarDest() {
+  const d = $('#sdest'); if (!d) return;
+  if (S.modo === 'ver') { d.style.display = 'none'; return; }
+  if (S.modo === 'cargar') {
+    const c = lugar(S.dest);
+    d.className = 'dest' + (c ? '' : ' none');
+    d.innerHTML = c ? `<small>Cargando a</small><b>🏕️ ${esc(c.Nombre)}</b> · ${S.ses.length} escaneados` : '<b>Elige un campamento primero</b>';
+    return;
+  }
+  d.className = 'dest' + (S.dest ? '' : ' none');
+  d.innerHTML = S.dest ? `<small>Guardando en</small><b>📦 ${ruta(S.dest)}</b> · ${S.ses.filter(x => x.ok).length} escaneados` : `<small>Paso 1</small><b>Escanea el QR de la casa o cajón</b>`;
+}
+
+async function abrirCamara() {
+  const v = document.querySelector('.scan video');
+  try {
+    S.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    v.srcObject = S.stream; await v.play();
+    const track = S.stream.getVideoTracks()[0];
+    if (track.getCapabilities && track.getCapabilities().torch) $('#torch').style.display = '';
+    if ('BarcodeDetector' in window) { try { const f = await BarcodeDetector.getSupportedFormats(); if (f.includes('qr_code')) S.det = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) {} }
+    decodificar(v);
+  } catch (e) {
+    $('#slast').textContent = 'No se pudo abrir la cámara. Revisa los permisos o escribe el ID abajo.';
+    $('#slast').className = 'last err';
+  }
+}
+let torchOn = false;
+function linterna() { const t = S.stream?.getVideoTracks()[0]; if (!t) return; torchOn = !torchOn; t.applyConstraints({ advanced: [{ torch: torchOn }] }).catch(() => {}); }
+
+const canvas = document.createElement('canvas'); const ctx2d = canvas.getContext('2d', { willReadFrequently: true });
+function decodificar(v) {
+  let ocupado = false, ultimo = 0;
+  const paso = async t => {
+    if (!enEscaner()) return;
+    S.loop = requestAnimationFrame(paso);
+    if (ocupado || t - ultimo < 110 || v.readyState < 2) return;
+    ultimo = t; ocupado = true;
+    try {
+      let txt = null;
+      if (S.det) { const r = await S.det.detect(v); if (r.length) txt = r[0].rawValue; }
+      else {
+        const w = v.videoWidth, h = v.videoHeight, s = Math.min(1, 640 / Math.max(w, h));
+        const cw = canvas.width = Math.round(w * s), ch = canvas.height = Math.round(h * s);
+        ctx2d.drawImage(v, 0, 0, cw, ch);
+        const img = ctx2d.getImageData(0, 0, cw, ch);
+        const r = jsQR(img.data, cw, ch, { inversionAttempts: 'dontInvert' });
+        if (r) txt = r.data;
+      }
+      if (txt) procesar(txt, true);
+    } catch (e) {}
+    ocupado = false;
+  };
+  S.loop = requestAnimationFrame(paso);
+}
+
+function flash(err) { const f = document.querySelector('.scan .flash'); if (!f) return; f.className = 'flash' + (err ? ' err' : ''); f.style.opacity = .55; setTimeout(() => f.style.opacity = 0, 180); }
+function msg(txt, err) { const l = $('#slast'); l.textContent = txt; l.className = 'last' + (err ? ' err' : ''); }
+
+function procesar(texto, deCamara) {
+  const id = idDesdeTexto(texto);
+  const ahora = Date.now();
+  if (deCamara && id && S.ultimo[id] && ahora - S.ultimo[id] < 3000) return; // evita lecturas repetidas
+  if (id) S.ultimo[id] = ahora;
+  if (!id) { beep('err'); flash(true); return msg('Código no reconocido', true); }
+  const o = obj(id);
+  if (!o) { beep('err'); flash(true); return msg(`${id} no está en el inventario`, true); }
+
+  if (S.modo === 'ver') { cerrarScan(); return go('#/f/' + id); }
+
+  const esLugar = id[0] === 'L';
+  if (S.modo === 'guardar') {
+    if (esLugar) {
+      if (esFijo(o)) { S.casa = o.ID; S.dest = o.ID; beep('lugar'); flash(); msg('📍 ' + o.Nombre); }
+      else { // un cajón: queda dentro de la casa actual y pasa a ser el destino
+        if (S.casa && o['Dentro de (ID)'] !== S.casa && !dentroDe(S.casa, o.ID)) registrar(o, S.casa);
+        S.dest = o.ID; beep('lugar'); flash(); msg('📦 ' + o.Nombre + (S.casa ? ' en ' + nombre(lugar(S.casa)) : ''));
+      }
+      return pintarDest();
+    }
+    if (!S.dest) { beep('err'); flash(true); return msg('Primero escanea la casa o cajón de destino', true); }
+    if (id[0] !== 'A') { beep('err'); flash(true); return msg('Solo los activos llevan QR', true); }
+    registrar(o, S.dest);
+  } else if (S.modo === 'cargar') {
+    if (!S.dest) { beep('err'); return msg('Elige un campamento', true); }
+    if (esLugar && esFijo(o)) { beep('err'); flash(true); return msg('Una casa no se puede cargar 🙂', true); }
+    if (!esLugar && id[0] !== 'A') { beep('err'); flash(true); return msg('Solo los activos llevan QR', true); }
+    registrar(o, S.dest);
+  }
+}
+
+function registrar(o, to) {
+  const desde = ubic(o);
+  if (desde === to) { beep('ok'); flash(); msg('✓ ' + nombre(o) + ' (ya estaba ahí)'); agregarLog(o, to, null, true); return; }
+  const op = encolar({ type: 'mover', id: o.ID, to, modo: S.modo === 'cargar' ? 'Cargar' : 'Guardar', camp: S.modo === 'cargar' ? to : '' });
+  beep('ok'); flash(); msg('✓ ' + nombre(o));
+  agregarLog(o, to, { op, desde });
+}
+
+function agregarLog(o, to, mov, yaEstaba) {
+  S.ses.unshift({ id: o.ID, to, mov, ok: true });
+  const ul = $('#slog'); if (!ul) return;
+  const i = S.ses.length;
+  ul.insertAdjacentHTML('afterbegin', `<li id="sl${i}"><div class="grow">${esc(nombre(o))}<small>${esc(o.ID)} → ${esc(nombre(lugar(to)))}${yaEstaba ? ' · ya estaba' : ''}</small></div>
+    ${mov ? `<button onclick="deshacer(${i})">Deshacer</button>` : ''}</li>`);
+  pintarDest();
+}
+
+function deshacer(i) {
+  const e = S.ses[S.ses.length - i]; if (!e || !e.mov) return;
+  const { op, desde } = e.mov;
+  const idx = COLA.findIndex(x => x.uid === op.uid);
+  if (idx >= 0) { COLA.splice(idx, 1); const o = obj(op.id); if (o) { if (op.id[0] === 'L') o['Dentro de (ID)'] = desde; else o['Ubicación (ID)'] = desde; } guardarLocal(); }
+  else if (desde) encolar({ type: 'mover', id: op.id, to: desde, modo: 'Guardar' });
+  e.mov = null; e.ok = false;
+  const li = document.getElementById('sl' + i); if (li) { li.style.opacity = .4; li.querySelector('button')?.remove(); }
+  msg('↩ Deshecho'); pintarDest();
+}
+
+function cerrarScan() {
+  cancelAnimationFrame(S.loop);
+  S.stream?.getTracks().forEach(t => t.stop()); S.stream = null; torchOn = false;
+  document.querySelector('.scan')?.remove();
+  if (S.modo !== 'ver') { const n = S.ses.filter(x => x.mov).length; if (n) toast(`${n} movimiento(s) registrados`); sincronizar(); }
+  if (location.hash.startsWith('#/scan')) history.replaceState(null, '', S.dest && S.modo !== 'ver' ? '#/f/' + S.dest : '#/');
+  render();
+}
+
+/* ================= Etiquetas QR ================= */
+function vEtiquetas(filtro) {
+  setTitle('Etiquetas QR');
+  let items;
+  const sel = filtro || LS.get('etq', 'activos');
+  if (sel && sel.startsWith('L-')) {
+    const l = lugar(sel);
+    items = [l, ...DB.lugares.filter(x => x['Dentro de (ID)'] === sel), ...DB.activos.filter(a => a['Ubicación (ID)'] === sel)].filter(Boolean);
+  } else if (sel === 'lugares') items = DB.lugares.filter(l => l.Tipo !== 'Campamento');
+  else if (sel === 'todo') items = [...DB.lugares.filter(l => l.Tipo !== 'Campamento'), ...DB.activos];
+  else items = DB.activos;
+  const qr = id => { const q = qrcode(0, 'M'); q.addData(APP_URL + '?id=' + id); q.make(); return q.createSvgTag({ cellSize: 3, margin: 2, scalable: true }); };
+  vista(`<div class="card noprint"><div class="row">
+    <select onchange="LS.set('etq',this.value);go('#/etiquetas')">${[['activos', 'Activos'], ['lugares', 'Casas y cajones'], ['todo', 'Todo']].map(([v, t]) => `<option value="${v}" ${v === sel ? 'selected' : ''}>${t}</option>`).join('')}${sel.startsWith('L-') ? `<option selected>${esc(nombre(lugar(sel)))}</option>` : ''}</select>
+    <button class="btn" style="flex:0 0 auto" onclick="window.print()">🖨️ Imprimir</button></div>
+    <p class="muted" style="margin:8px 0 0">${items.length} etiquetas · imprime en papel adhesivo o normal y lamina. El QR abre la ficha con cualquier cámara.</p></div>
+    <div class="card"><div class="labels">${items.map(o => `<div class="label">${qr(o.ID)}<div class="ln">${esc(nombre(o))}</div><div class="li">${esc(o.ID)}</div><div class="lg">G.G.S. Alfa Cruz</div></div>`).join('')}</div></div>`);
+}
+
+/* ================= Ajustes ================= */
+function vAjustes() {
+  setTitle('Ajustes');
+  vista(`<div class="card"><h2>Tus datos</h2>
+    <label>Tu nombre (queda en el historial)</label><input id="a_u" value="${esc(usuario())}" placeholder="Ej: Vicente A.">
+    <label>PIN del grupo (para hacer cambios)</label><input id="a_p" type="password" inputmode="numeric" value="${esc(pin())}">
+    <button class="btn block" onclick="guardarAjustes()">Guardar</button></div>
+    <div class="card"><h2>Sincronización</h2>
+    <p class="muted">${COLA.length} cambio(s) por subir. ${syncError ? 'Último error: ' + esc(syncError) : ''}</p>
+    <button class="btn sec block" onclick="sincronizar(true)">Sincronizar ahora</button>
+    <details style="margin-top:12px"><summary class="muted">Avanzado</summary>
+      <label>URL del servidor (Apps Script)</label><input id="a_api" value="${esc(LS.get('api', ''))}" placeholder="${esc(API_URL_DEFECTO)}">
+      <button class="btn sec block" onclick="LS.set('api',$('#a_api').value.trim());toast('URL guardada');sincronizar(true)">Guardar URL</button>
+      <button class="btn bad block" onclick="if(confirm('¿Borrar los datos guardados en este teléfono? Los cambios sin subir se perderán.')){localStorage.clear();location.reload()}">Borrar datos del teléfono</button>
+    </details></div>`);
+}
+async function guardarAjustes() {
+  LS.set('user', $('#a_u').value.trim()); LS.set('pin', $('#a_p').value.trim());
+  try {
+    const r = await fetch(api() + '?action=ping&pin=' + encodeURIComponent(pin())).then(r => r.json());
+    toast(r.pinOk ? 'Guardado ✓ PIN correcto' : 'Guardado, pero el PIN no es correcto', 3000);
+    if (r.pinOk) sincronizar();
+  } catch (e) { toast('Guardado (sin conexión para verificar el PIN)'); }
+}
+
+/* ================= Router ================= */
+function render() {
+  if (enEscaner()) return;
+  const h = location.hash.slice(1) || '/';
+  const [, a, b, c] = h.split('/');
+  $('#back').style.visibility = a ? 'visible' : 'hidden';
+  if (a === 'ajustes') return vAjustes();
+  if (!DB) return vInicio();
+  switch (a) {
+    case 'f': return vFicha(decodeURIComponent(b));
+    case 'buscar': return vBuscar(b);
+    case 'lugares': return vLugares();
+    case 'lista': return vLista(b);
+    case 'camp': return vCamp();
+    case 'etiquetas': return vEtiquetas(b);
+    case 'scan': vInicio(); return vScan(b, c);
+    default: return vInicio();
+  }
+}
+window.addEventListener('hashchange', render);
+
+/* ================= Inicio ================= */
+(function init() {
+  const p = new URLSearchParams(location.search).get('id');
+  if (p) { history.replaceState(null, '', location.pathname + '#/f/' + (idDesdeTexto(p) || p)); }
+  pintarSync(); render();
+  if (!usuario() && !location.hash.includes('ajustes') && DB) toast('Tip: pon tu nombre en Ajustes', 3000);
+  sincronizar();
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
