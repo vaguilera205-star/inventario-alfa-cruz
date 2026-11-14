@@ -94,8 +94,6 @@ h3{font-size:22px;margin:0 0 4px}
 </header>
 <main id="view"></main>
 <div id="toast"></div>
-<script src="lib/jsQR.js"></script>
-<script src="lib/qrcode.js"></script>
 <script>
 /* ================= Configuración ================= */
 // Pega aquí la URL de la implementación del Apps Script (termina en /exec):
@@ -159,6 +157,12 @@ function estadoVenc(v) {
   return (d - hoy) / 864e5 < 90 ? 'Vence pronto' : 'Vigente';
 }
 
+/* Librerías pesadas: se cargan solo cuando se necesitan */
+const libs = {};
+function cargarLib(src) {
+  return libs[src] = libs[src] || new Promise((ok, mal) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = mal; document.head.appendChild(s); });
+}
+
 /* ================= Sonido / vibración ================= */
 let AC;
 function beep(tipo = 'ok') {
@@ -219,18 +223,21 @@ async function sincronizar(manual) {
       const fallidas = r.resultados.filter(x => !x.ok);
       const enviados = new Set(lote.map(o => o.uid));
       COLA = COLA.filter(o => !enviados.has(o.uid));
-      DB = r.data; COLA.forEach(aplicarLocal);
+      DB = r.data; LS.set('ver', r.ver); COLA.forEach(aplicarLocal);
       if (fallidas.length) toast(`${fallidas.length} cambio(s) rechazados: ${fallidas[0].error}`, 5000);
       syncError = '';
       guardarLocal();
       if (COLA.length) { sincronizando = false; return sincronizar(); }
     } else {
-      const r = await fetch(api() + '?action=all&t=' + Date.now()).then(r => r.json());
+      const v = DB ? LS.get('ver', '') : '';
+      const r = await fetch(api() + '?action=all&v=' + encodeURIComponent(v) + '&t=' + Date.now()).then(r => r.json());
       if (!r.ok) throw new Error(r.error);
-      DB = r.data; syncError = ''; guardarLocal();
+      syncError = '';
+      if (r.sinCambios) { pintarSync(); if (manual) toast('Ya estabas al día'); return; }
+      DB = r.data; LS.set('ver', r.ver); guardarLocal();
     }
     if (manual) toast('Sincronizado');
-    if (!enEscaner()) render();
+    if (!enEscaner()) render(true);
   } catch (e) {
     syncError = String(e.message || e); if (manual) toast('Sin conexión: los cambios quedan guardados en el teléfono', 3500);
   } finally { sincronizando = false; pintarSync(); }
@@ -244,16 +251,20 @@ function vista(html) { $('#view').innerHTML = html; window.scrollTo(0, 0); }
 
 function vInicio() {
   setTitle('Inventario Alfa Cruz');
-  if (!DB) return vista(`<div class="card"><h2>Bienvenido</h2><p class="muted">Aún no hay datos en este teléfono.</p>
-    <button class="btn block" onclick="sincronizar(true)">Descargar inventario</button>
-    <a class="btn sec block" href="#/ajustes">Ajustes</a></div>`);
+  const registro = (!usuario() || !pin()) ? `<div class="card"><h2>👋 Antes de empezar</h2>
+    <label>Tu nombre (queda en el historial)</label><input id="r_u" value="${esc(usuario())}" placeholder="Ej: Vicente A." autocomplete="name">
+    <label>PIN del grupo</label><input id="r_p" type="password" inputmode="numeric" value="${esc(pin())}">
+    <button class="btn block" onclick="registrar_(this)">Listo</button></div>` : '';
+  if (!DB) return vista(registro + `<div class="card"><h2>${syncError ? 'No se pudo descargar' : '⏳ Descargando inventario…'}</h2>
+    <p class="muted">${syncError ? 'Revisa tu conexión.' : 'La primera vez tarda unos segundos; después abre al instante.'}</p>
+    ${syncError ? '<button class="btn block" onclick="sincronizar(true)">Reintentar</button>' : ''}</div>`);
   const act = DB.activos;
   const problemas = act.filter(a => ['Malo', 'Perdido', 'En reparación'].includes(a.Estado)).length;
   const prest = act.filter(a => a['Prestado a']).length;
   const faltan = DB.consumibles.filter(c => c.Nivel === 'Falta' || c.Nivel === 'Poco').length;
   const venc = DB.enfermeria.filter(e => e.Estado === 'Vencido' || e.Estado === 'Vence pronto').length;
   const enCamp = act.filter(a => lugar(a['Ubicación (ID)'])?.Tipo === 'Campamento' || cadena(a['Ubicación (ID)']).some(l => l.Tipo === 'Campamento')).length;
-  vista(`
+  vista(registro + `
   <div class="card" style="padding:10px">
     <form onsubmit="event.preventDefault();go('#/buscar/'+encodeURIComponent(this.q.value))">
       <input name="q" type="search" placeholder="Buscar: carpa, cocinilla, cajón 3…" autocomplete="off">
@@ -329,7 +340,7 @@ async function altaOnline(op) { // altas requieren conexión (el servidor asigna
     const r = await fetch(api(), { method: 'POST', body: JSON.stringify({ pin: pin(), user: usuario(), ops: [op] }) }).then(r => r.json());
     if (!r.ok) return toast('Error: ' + r.error);
     const res = r.resultados[0]; if (!res.ok) return toast('Error: ' + res.error);
-    DB = r.data; COLA.forEach(aplicarLocal); guardarLocal();
+    DB = r.data; LS.set('ver', r.ver); COLA.forEach(aplicarLocal); guardarLocal();
     toast('Creado ' + res.id); go('#/f/' + res.id);
     return res.id;
   } catch (e) { toast('Sin conexión'); }
@@ -511,6 +522,7 @@ async function abrirCamara() {
     const track = S.stream.getVideoTracks()[0];
     if (track.getCapabilities && track.getCapabilities().torch) $('#torch').style.display = '';
     if ('BarcodeDetector' in window) { try { const f = await BarcodeDetector.getSupportedFormats(); if (f.includes('qr_code')) S.det = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) {} }
+    if (!S.det) await cargarLib('lib/jsQR.js');
     decodificar(v);
   } catch (e) {
     $('#slast').textContent = 'No se pudo abrir la cámara. Revisa los permisos o escribe el ID abajo.';
@@ -621,6 +633,7 @@ function cerrarScan() {
 /* ================= Etiquetas QR ================= */
 function vEtiquetas(filtro) {
   setTitle('Etiquetas QR');
+  if (!window.qrcode) { vista('<div class="card muted">Preparando etiquetas…</div>'); cargarLib('lib/qrcode.js').then(() => vEtiquetas(filtro)); return; }
   let items;
   const sel = filtro || LS.get('etq', 'activos');
   if (sel && sel.startsWith('L-')) {
@@ -653,18 +666,34 @@ function vAjustes() {
       <button class="btn bad block" onclick="if(confirm('¿Borrar los datos guardados en este teléfono? Los cambios sin subir se perderán.')){localStorage.clear();location.reload()}">Borrar datos del teléfono</button>
     </details></div>`);
 }
-async function guardarAjustes() {
+function guardarAjustes() {
   LS.set('user', $('#a_u').value.trim()); LS.set('pin', $('#a_p').value.trim());
+  toast('Guardado'); go('#/'); verificarPin();
+}
+function registrar_(b) {
+  const u = $('#r_u').value.trim(), p = $('#r_p').value.trim();
+  if (!u || !p) return toast('Completa nombre y PIN');
+  LS.set('user', u); LS.set('pin', p); toast('¡Listo, ' + u.split(' ')[0] + '!'); render(); verificarPin();
+}
+async function verificarPin() { // en segundo plano, sin hacer esperar
   try {
     const r = await fetch(api() + '?action=ping&pin=' + encodeURIComponent(pin())).then(r => r.json());
-    toast(r.pinOk ? 'Guardado ✓ PIN correcto' : 'Guardado, pero el PIN no es correcto', 3000);
-    if (r.pinOk) sincronizar();
-  } catch (e) { toast('Guardado (sin conexión para verificar el PIN)'); }
+    if (!r.pinOk) { toast('⚠ El PIN no es correcto, revísalo en Ajustes', 4000); return; }
+    if (COLA.length) sincronizar();
+  } catch (e) {}
 }
 
 /* ================= Router ================= */
-function render() {
+function render(preservar) { // en refrescos de fondo conserva lo que el usuario esté escribiendo
   if (enEscaner()) return;
+  const misma = preservar === true && render.hash === location.hash; render.hash = location.hash;
+  const foco = misma && document.activeElement?.id, vals = {};
+  if (misma) document.querySelectorAll('main input[id], main textarea[id]').forEach(el => { vals[el.id] = el.value; });
+  render_();
+  Object.entries(vals).forEach(([id, v]) => { const el = document.getElementById(id); if (el && el.type !== 'date' && !id.startsWith('q_')) el.value = v; });
+  if (foco) document.getElementById(foco)?.focus();
+}
+function render_() {
   const h = location.hash.slice(1) || '/';
   const [, a, b, c] = h.split('/');
   $('#back').style.visibility = a ? 'visible' : 'hidden';
@@ -688,7 +717,6 @@ window.addEventListener('hashchange', render);
   const p = new URLSearchParams(location.search).get('id');
   if (p) { history.replaceState(null, '', location.pathname + '#/f/' + (idDesdeTexto(p) || p)); }
   pintarSync(); render();
-  if (!usuario() && !location.hash.includes('ajustes') && DB) toast('Tip: pon tu nombre en Ajustes', 3000);
   sincronizar();
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
